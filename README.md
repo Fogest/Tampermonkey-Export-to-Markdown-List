@@ -1,0 +1,1 @@
+In Tampermonkey you can export all your userscripts/option/storage. You can put these exported scripts in a scripts folder and this Python application will convert them into a markdown (mdx) formatted file to easily share with others.
