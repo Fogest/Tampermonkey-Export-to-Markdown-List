@@ -1,9 +1,9 @@
 import os
 import re
+import json
 from pathlib import Path
 
 def escape_mdx(text):
-    # Escape special characters for MDX
     escape_chars = r'[<>@\[\]\\`*_{}&#]'
     return re.sub(escape_chars, lambda m: '\\' + m.group(0), text)
 
@@ -15,7 +15,7 @@ def extract_script_info(file_path):
         'name': 'N/A',
         'description': 'N/A',
         'author': 'N/A',
-        'downloadURL': 'N/A'
+        'downloadURL': None
     }
 
     patterns = {
@@ -30,6 +30,24 @@ def extract_script_info(file_path):
         if match:
             info[key] = escape_mdx(match.group(1).strip())
 
+    # If downloadURL is not found, check the associated options.json file
+    if info['downloadURL'] is None:
+        options_file = file_path.with_name(file_path.stem.replace('.user', '') + '.options.json')
+        print(f"Checking for options file: {options_file}")
+        if options_file.exists():
+            print(f"Options file found: {options_file}")
+            with open(options_file, 'r', encoding='utf-8') as f:
+                options_data = json.load(f)
+                print(f"Options data: {json.dumps(options_data, indent=2)}")
+                file_url = options_data.get('meta', {}).get('file_url')
+                if file_url:
+                    info['downloadURL'] = escape_mdx(file_url)
+                    print(f"File URL found: {file_url}")
+                else:
+                    print("No file_url found in options.json")
+        else:
+            print("Options file not found")
+
     return info
 
 def generate_markdown(scripts_info):
@@ -39,7 +57,10 @@ def generate_markdown(scripts_info):
         markdown += f"### {script['name']}\n\n"
         markdown += f"{script['description']}\n\n"
         markdown += f"**Author:** {script['author']}\n\n"
-        markdown += f"**Download:** [{script['downloadURL']}]({script['downloadURL']})\n\n"
+        if script['downloadURL']:
+            markdown += f"**Download:** [{script['downloadURL']}]({script['downloadURL']})\n\n"
+        else:
+            markdown += "**Download:** N/A\n\n"
         markdown += "---\n\n"
     
     return markdown
@@ -55,15 +76,17 @@ def main():
     scripts_info = []
 
     for file in script_dir.glob('*.user.js'):
+        print(f"\nProcessing file: {file}")
         info = extract_script_info(file)
         scripts_info.append(info)
+        print(f"Extracted info: {info}")
 
     markdown_content = generate_markdown(scripts_info)
 
     with open(output_file, 'w', encoding='utf-8') as f:
         f.write(markdown_content)
 
-    print(f"Markdown file has been generated: {output_file}")
+    print(f"\nMarkdown file has been generated: {output_file}")
 
 if __name__ == "__main__":
     main()
